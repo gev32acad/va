@@ -14,7 +14,7 @@ const DiscordRPC = require('discord-rpc');
 const isDev = !app.isPackaged;
 
 // Replace this with your Discord Application Client ID from https://discord.com/developers/applications
-const DISCORD_CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID';
+const DISCORD_CLIENT_ID = '1382097609560166400';
 
 DiscordRPC.register(DISCORD_CLIENT_ID);
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
