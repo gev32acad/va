@@ -9,6 +9,7 @@ A Valorant companion tool that uses the **local Riot Client API** to modify your
 - **Skin Changer** — Equip any skin on any weapon instantly from a searchable, weapon-grouped list
 - **Rank Editor** — Change your displayed rank and leaderboard position (visible to friends within ~10 seconds)
 - **Customize** — Edit your player card, level border, title, account level, and idle status
+- **Discord Rich Presence** — Shows "Using ValoDaiv" status in Discord while the app is running
 - ~~**Agent Instant Locker**~~ *(removed)*
 
 ---
@@ -36,6 +37,17 @@ Open Valorant first, then click **Authorize** in the sidebar. This connects the 
 ### 4. Customize
 - Change your **Player Card**, **Level Border**, **Title**, **Account Level**, and **Idle Status**
 - ⚠ **Requires a game restart to take effect**
+
+---
+
+## Discord Rich Presence Setup
+
+To enable the Discord RPC status, you need a Discord Application Client ID:
+
+1. Go to [https://discord.com/developers/applications](https://discord.com/developers/applications) and create a new application named `ValoDaiv`.
+2. Copy the **Application ID** from the General Information page.
+3. In `public/main.js`, replace `YOUR_DISCORD_CLIENT_ID` with your Application ID.
+4. *(Optional)* Upload a `logo` image under **Rich Presence → Art Assets** to show an icon in your status.
 
 ---
 

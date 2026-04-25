@@ -9,14 +9,42 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const https = require('https');
+const DiscordRPC = require('discord-rpc');
 
 const isDev = !app.isPackaged;
+
+// Replace this with your Discord Application Client ID from https://discord.com/developers/applications
+const DISCORD_CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID';
+
+DiscordRPC.register(DISCORD_CLIENT_ID);
+const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+const rpcStartTime = new Date();
+
+function setDiscordActivity() {
+    if (!rpc) return;
+    rpc.setActivity({
+        details: 'Using ValoDaiv',
+        state: 'Customizing Valorant profile',
+        startTimestamp: rpcStartTime,
+        largeImageKey: 'logo',
+        largeImageText: 'ValoDaiv',
+        instance: false,
+    }).catch(() => {});
+}
+
+rpc.on('ready', () => {
+    setDiscordActivity();
+    setInterval(setDiscordActivity, 15e3);
+});
+
+rpc.login({ clientId: DISCORD_CLIENT_ID }).catch(() => {});
 
 require('@electron/remote/main').initialize();
 
 var mainWindow, axiosClient, accessToken, entitlementsToken, playerUUid, riotClientVersion, shard, configEndpoint, coreGameUrl, playerUrl;
 
 app.on('window-all-closed', () => { app.quit(); });
+app.on('before-quit', () => { rpc.destroy().catch(() => {}); });
 
 app.whenReady().then(() => {
     axios.get('https://valorant-api.com/v1/version').then(res => {
