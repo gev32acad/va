@@ -1,15 +1,15 @@
 {
-  "name": "valodaiv",
-  "productName": "ValoDaiv",
-  "description": "not bannable , uses the local client api",
-  "author": "Daived",
+  "name": "yoxyn-skin-changer",
+  "productName": "yoxyn's Skin Changer",
+  "description": "yoxyn's Valorant skin changer — not bannable, uses the local client API",
+  "author": "yoxyn",
   "private": true,
   "version": "0.2.0",
   "main": "public/main.js",
   "homepage": "./",
   "build": {
     "extends": null,
-    "appId": "com.valodaiv.app",
+    "appId": "com.yoxyn.skinchanger",
     "compression": "maximum",
     "asar": true,
     "forceCodeSigning": false,
@@ -17,12 +17,24 @@
       "oneClick": true,
       "perMachine": false,
       "createDesktopShortcut": true,
-      "installerLanguages": ["en_US"]
+      "installerLanguages": [
+        "en_US"
+      ]
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "zip",  "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "icon.ico"
     },
@@ -58,6 +70,7 @@
     "@formkit/auto-animate": "^1.0.0-beta.6",
     "adm-zip": "^0.5.10",
     "axios": "^1.4.0",
+    "discord-rpc": "^4.0.1",
     "electron-is-dev": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
