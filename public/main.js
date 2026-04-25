@@ -23,11 +23,11 @@ const rpcStartTime = new Date();
 function setDiscordActivity() {
     if (!rpc) return;
     rpc.setActivity({
-        details: 'Using ValoDaiv',
+        details: "yoxyn's Skin Changer",
         state: 'Customizing Valorant profile',
         startTimestamp: rpcStartTime,
         largeImageKey: 'logo',
-        largeImageText: 'ValoDaiv',
+        largeImageText: "yoxyn's Skin Changer",
         instance: false,
     }).catch(() => {});
 }

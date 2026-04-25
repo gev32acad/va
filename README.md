@@ -1,6 +1,6 @@
-# ValoDaiv
+# yoxyn's Skin Changer
 
-A Valorant companion tool that uses the **local Riot Client API** to modify your in-game profile appearance. Since it only communicates with your local client — not Riot's servers directly — it is considered safe to use.
+A Valorant companion tool by **yoxyn** that uses the **local Riot Client API** to modify your in-game profile appearance. Since it only communicates with your local client — not Riot's servers directly — it is considered safe to use.
 
 ---
 
