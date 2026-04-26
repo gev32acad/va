@@ -67,6 +67,10 @@ function setDiscordActivity() {
         const queue = formatQueue(valorantGameState.queueId);
         const size = valorantGameState.partySize;
         state = [queue, size > 1 ? `${size} in Party` : null].filter(Boolean).join(' · ') || 'Choosing Agent';
+    } else if (valorantGameState) {
+        details = 'In Valorant';
+        const size = valorantGameState.partySize;
+        state = size > 1 ? `${size} in Party` : 'In Menus';
     } else {
         details = currentPageLabel !== 'Home' ? `Browsing ${currentPageLabel}` : 'In the App';
         state = "Oxyn Valorant";
