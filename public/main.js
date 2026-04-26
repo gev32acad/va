@@ -590,6 +590,7 @@ ipcMain.on('equipBuddy', async (event, { gunUuid, buddyUuid, buddyLevelUuid }) =
         if ('charmLevelId' in gun) gun.charmLevelId = buddyLevelUuid;
     }
     gun.CharmInstanceID = gun.CharmInstanceID || null;
+    if ('charmInstanceId' in gun) gun.charmInstanceId = gun.charmInstanceId || null;
 
     axios.put(`${playerUrl}/personalization/${loadoutVer}/players/${playerUUid}/playerloadout`, loadout, { headers: pdHeaders })
         .then(() => console.log('Buddy equipped successfully!'))

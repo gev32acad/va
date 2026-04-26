@@ -116,7 +116,7 @@ const Cosmetics = () => {
   }
 
   const equipBuddy = (buddy) => {
-    ipcRenderer.send('equipBuddy', { gunUuid: selectedWeapon, buddyUuid: buddy.uuid, buddyLevelUuid: buddy.levels?.[0]?.uuid || null })
+    ipcRenderer.send('equipBuddy', { gunUuid: selectedWeapon, buddyUuid: buddy.uuid, buddyLevelUuid: buddy.levels?.[0]?.uuid ?? null })
     Swal.fire({ icon: 'success', text: `Buddy equipped: ${buddy.displayName}`, toast: true, position: 'top-end', background: '#141418', color: '#f0f0f8', showConfirmButton: false, timer: 2500, iconColor: '#ff4655' })
   }
 
