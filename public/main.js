@@ -300,9 +300,19 @@ ipcMain.on('equip', async (event, skinUid) => {
     const gunInLoadout = guns.find(g => (g.ID || g.id)?.toLowerCase() === gun.uuid.toLowerCase());
     if (!gunInLoadout) return console.log('Gun not found in loadout:', gun.uuid);
 
-    gunInLoadout.SkinID = skinData.uuid;
-    gunInLoadout.SkinLevelID = skinData.levels?.[0]?.uuid || gunInLoadout.SkinLevelID;
-    gunInLoadout.ChromaID = skinData.chromas?.[0]?.uuid || gunInLoadout.ChromaID;
+    const skinLevel = skinData.levels?.[0]?.uuid;
+    const skinChroma = skinData.chromas?.[0]?.uuid;
+
+    if ('SkinID' in gunInLoadout || !('skinId' in gunInLoadout)) gunInLoadout.SkinID = skinData.uuid;
+    if ('skinId' in gunInLoadout) gunInLoadout.skinId = skinData.uuid;
+    if (skinLevel) {
+        if ('SkinLevelID' in gunInLoadout || !('skinLevelId' in gunInLoadout)) gunInLoadout.SkinLevelID = skinLevel;
+        if ('skinLevelId' in gunInLoadout) gunInLoadout.skinLevelId = skinLevel;
+    }
+    if (skinChroma) {
+        if ('ChromaID' in gunInLoadout || !('chromaId' in gunInLoadout)) gunInLoadout.ChromaID = skinChroma;
+        if ('chromaId' in gunInLoadout) gunInLoadout.chromaId = skinChroma;
+    }
 
     axios.put(`${playerUrl}/personalization/${loadoutVersion}/players/${playerUUid}/playerloadout`, loadout, {
         headers: pdHeaders
