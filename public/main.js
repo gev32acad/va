@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const https = require('https');
+const { exec, execSync } = require('child_process');
 const DiscordRPC = require('discord-rpc');
 
 const isDev = !app.isPackaged;
@@ -42,11 +43,26 @@ rpc.login({ clientId: DISCORD_CLIENT_ID }).catch(() => {});
 require('@electron/remote/main').initialize();
 
 var mainWindow, axiosClient, accessToken, entitlementsToken, playerUUid, riotClientVersion, shard, configEndpoint, coreGameUrl, playerUrl;
+var accountsFilePath;
+
+function readAccounts() {
+    try {
+        if (accountsFilePath && fs.existsSync(accountsFilePath)) {
+            return JSON.parse(fs.readFileSync(accountsFilePath, 'utf8'));
+        }
+    } catch (e) {}
+    return [];
+}
+
+function saveAccountsList(accounts) {
+    if (accountsFilePath) fs.writeFileSync(accountsFilePath, JSON.stringify(accounts, null, 2));
+}
 
 app.on('window-all-closed', () => { app.quit(); });
 app.on('before-quit', () => { rpc.destroy().catch(() => {}); });
 
 app.whenReady().then(() => {
+    accountsFilePath = path.join(app.getPath('userData'), 'accounts.json');
     axios.get('https://valorant-api.com/v1/version').then(res => {
         riotClientVersion = res.data.data.riotClientVersion;
     })
@@ -326,4 +342,131 @@ process.on("unhandledRejection", async (reason, p, origin) => {
 
 process.on("uncaughtExceptionMonitor", async (err, origin) => {
     console.log(err.stack);
+});
+
+// ── Account Switcher ────────────────────────────────────────────────────────
+
+ipcMain.on('accountSwitcher:getAccounts', (event) => {
+    event.reply('accountSwitcher:accounts', readAccounts());
+});
+
+ipcMain.on('accountSwitcher:import', async (event) => {
+    const localAppData = process.env.LOCALAPPDATA;
+    const lockfilePath = path.join(localAppData, 'Riot Games', 'Riot Client', 'Config', 'lockfile');
+
+    let lockfileData;
+    try {
+        lockfileData = fs.readFileSync(lockfilePath, 'utf8');
+    } catch (e) {
+        return event.reply('accountSwitcher:importResult', { success: false, error: 'Riot Client not found. Make sure Valorant is running.' });
+    }
+
+    const parts = lockfileData.split(':');
+    const port = parts[2];
+    const password = parts[3];
+
+    const tempClient = axios.create({
+        baseURL: `https://127.0.0.1:${port}/`,
+        timeout: 5000,
+        headers: { common: { 'Authorization': 'Basic ' + Buffer.from(`riot:${password}`).toString('base64'), 'Content-Type': 'application/json' } },
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+    });
+
+    let userInfo;
+    try {
+        const entRes = await tempClient.get('entitlements/v1/token');
+        const accessTok = entRes.data.accessToken;
+        const userRes = await axios.get('https://auth.riotgames.com/userinfo', { headers: { 'Authorization': 'Bearer ' + accessTok } });
+        userInfo = userRes.data;
+    } catch (e) {
+        return event.reply('accountSwitcher:importResult', { success: false, error: 'Could not get account info: ' + e.message });
+    }
+
+    // Try to grab the Riot Client exe path while it's still running
+    let riotClientExe = '';
+    try {
+        const wmicOut = execSync('wmic process where "name=\'RiotClientServices.exe\'" get ExecutablePath /format:value', { timeout: 5000 }).toString();
+        const match = wmicOut.match(/ExecutablePath=(.+)/i);
+        if (match) riotClientExe = match[1].trim();
+    } catch (e) {}
+
+    const settingsSrc = path.join(localAppData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml');
+    const accountsDataDir = path.join(app.getPath('userData'), 'accounts');
+    if (!fs.existsSync(accountsDataDir)) fs.mkdirSync(accountsDataDir, { recursive: true });
+    const savedSettingsPath = path.join(accountsDataDir, userInfo.sub + '.yaml');
+
+    try {
+        fs.copyFileSync(settingsSrc, savedSettingsPath);
+    } catch (e) {
+        return event.reply('accountSwitcher:importResult', { success: false, error: 'Failed to copy session data: ' + e.message });
+    }
+
+    const accounts = readAccounts();
+    const existingIdx = accounts.findIndex(a => a.puuid === userInfo.sub);
+    const account = {
+        puuid: userInfo.sub,
+        gameName: userInfo.acct?.game_name || '',
+        tagLine: userInfo.acct?.tag_line || '',
+        riotClientExe,
+        settingsFile: savedSettingsPath,
+        importedAt: new Date().toISOString()
+    };
+    if (existingIdx >= 0) {
+        accounts[existingIdx] = account;
+    } else {
+        accounts.push(account);
+    }
+    saveAccountsList(accounts);
+
+    event.reply('accountSwitcher:importResult', { success: true, accounts });
+});
+
+ipcMain.on('accountSwitcher:launch', async (event, puuid) => {
+    const accounts = readAccounts();
+    const account = accounts.find(a => a.puuid === puuid);
+    if (!account) return event.reply('accountSwitcher:launchResult', { success: false, error: 'Account not found.' });
+
+    const localAppData = process.env.LOCALAPPDATA;
+    const settingsDest = path.join(localAppData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml');
+
+    // Kill Riot processes
+    for (const proc of ['RiotClientUx.exe', 'RiotClientServices.exe', 'RiotClient.exe', 'VALORANT-Win64-Shipping.exe']) {
+        try { execSync(`taskkill /f /im "${proc}"`, { timeout: 5000 }); } catch (e) {}
+    }
+
+    await new Promise(r => setTimeout(r, 1500));
+
+    try {
+        fs.copyFileSync(account.settingsFile, settingsDest);
+    } catch (e) {
+        return event.reply('accountSwitcher:launchResult', { success: false, error: 'Failed to restore session: ' + e.message });
+    }
+
+    const candidates = [
+        account.riotClientExe,
+        'C:\\Riot Games\\Riot Client\\RiotClientServices.exe',
+        'C:\\Program Files\\Riot Games\\Riot Client\\RiotClientServices.exe',
+        'C:\\Program Files (x86)\\Riot Games\\Riot Client\\RiotClientServices.exe',
+    ].filter(Boolean);
+
+    let launched = false;
+    for (const exePath of candidates) {
+        if (exePath && fs.existsSync(exePath)) {
+            exec(`"${exePath}"`);
+            launched = true;
+            break;
+        }
+    }
+
+    event.reply('accountSwitcher:launchResult', { success: launched, error: launched ? null : 'Riot Client executable not found.' });
+});
+
+ipcMain.on('accountSwitcher:delete', (event, puuid) => {
+    const accountsDataDir = path.join(app.getPath('userData'), 'accounts');
+    const savedSettingsPath = path.join(accountsDataDir, puuid + '.yaml');
+    try { fs.unlinkSync(savedSettingsPath); } catch (e) {}
+
+    const accounts = readAccounts().filter(a => a.puuid !== puuid);
+    saveAccountsList(accounts);
+    event.reply('accountSwitcher:accounts', accounts);
 });
