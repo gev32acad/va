@@ -6,6 +6,8 @@ import Swal from 'sweetalert2'
 import Profile from './Components/Profile'
 import Customize from './Components/Customize'
 import AccountSwitcher from './Components/AccountSwitcher'
+import Cosmetics from './Components/Cosmetics'
+import AgentLocker from './Components/AgentLocker'
 import { VscChromeMinimize, VscChromeMaximize, VscChromeClose } from 'react-icons/vsc'
 import { GiCurvyKnife } from 'react-icons/gi'
 
@@ -75,6 +77,8 @@ function App() {
           {page === 4 && <Settings user={user} userSetter={setUser} />}
           {page === 5 && <Customize />}
           {page === 6 && <AccountSwitcher />}
+          {page === 7 && <Cosmetics />}
+          {page === 8 && <AgentLocker />}
         </main>
       </div>
 

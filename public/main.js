@@ -43,7 +43,45 @@ rpc.login({ clientId: DISCORD_CLIENT_ID }).catch(() => {});
 require('@electron/remote/main').initialize();
 
 var mainWindow, axiosClient, accessToken, entitlementsToken, playerUUid, riotClientVersion, shard, configEndpoint, coreGameUrl, playerUrl;
-var accountsFilePath;
+var accountsFilePath, agentLockerConfigPath;
+var agentLockerConfig = { enabled: false, agentUuid: null };
+var agentLockerLocked = false;
+var agentLockerInterval = null;
+
+function readAgentLockerConfig() {
+    try {
+        if (agentLockerConfigPath && fs.existsSync(agentLockerConfigPath)) {
+            return JSON.parse(fs.readFileSync(agentLockerConfigPath, 'utf8'));
+        }
+    } catch (e) {}
+    return { enabled: false, agentUuid: null };
+}
+
+function saveAgentLockerConfig(cfg) {
+    if (agentLockerConfigPath) fs.writeFileSync(agentLockerConfigPath, JSON.stringify(cfg, null, 2));
+}
+
+function startAgentLockerPolling() {
+    if (agentLockerInterval) return;
+    agentLockerInterval = setInterval(async () => {
+        if (!agentLockerConfig.enabled || !agentLockerConfig.agentUuid || !axiosClient || !playerUUid) {
+            agentLockerLocked = false;
+            return;
+        }
+        try {
+            const preRes = await axiosClient.get(`pregame/v1/players/${playerUUid}`);
+            const matchId = preRes.data.MatchID;
+            if (!matchId) { agentLockerLocked = false; return; }
+            if (agentLockerLocked) return;
+            await axiosClient.post(`pregame/v1/matches/${matchId}/select/${agentLockerConfig.agentUuid}`);
+            await axiosClient.post(`pregame/v1/matches/${matchId}/lock/${agentLockerConfig.agentUuid}`);
+            agentLockerLocked = true;
+            console.log('Agent locked:', agentLockerConfig.agentUuid);
+        } catch (e) {
+            agentLockerLocked = false;
+        }
+    }, 2000);
+}
 
 function readAccounts() {
     try {
@@ -63,6 +101,9 @@ app.on('before-quit', () => { rpc.destroy().catch(() => {}); });
 
 app.whenReady().then(() => {
     accountsFilePath = path.join(app.getPath('userData'), 'accounts.json');
+    agentLockerConfigPath = path.join(app.getPath('userData'), 'agentLockerConfig.json');
+    agentLockerConfig = readAgentLockerConfig();
+    startAgentLockerPolling();
     axios.get('https://valorant-api.com/v1/version').then(res => {
         riotClientVersion = res.data.data.riotClientVersion;
     })
@@ -470,4 +511,99 @@ ipcMain.on('accountSwitcher:delete', (event, puuid) => {
     const accounts = readAccounts().filter(a => a.puuid !== puuid);
     saveAccountsList(accounts);
     event.reply('accountSwitcher:accounts', accounts);
+});
+
+// ── Cosmetics: Sprays ────────────────────────────────────────────────────────
+
+ipcMain.on('equipSprays', async (event, sprayUuids) => {
+    if (!axiosClient) return mainWindow.webContents.send('unauthorized');
+    if (!playerUrl) return mainWindow.webContents.send('unauthorized');
+
+    const pdHeaders = {
+        'Authorization': 'Bearer ' + accessToken,
+        'X-Riot-Entitlements-JWT': entitlementsToken,
+        'X-Riot-ClientVersion': riotClientVersion,
+        'X-Riot-ClientPlatform': 'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuNzY4LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9',
+        'Content-Type': 'application/json'
+    };
+
+    let loadout = null, loadoutVer = null;
+    for (const ver of ['v3', 'v2']) {
+        try {
+            const r = await axios.get(`${playerUrl}/personalization/${ver}/players/${playerUUid}/playerloadout`, { headers: pdHeaders });
+            loadout = r.data; loadoutVer = ver;
+            break;
+        } catch (e) { console.log(`Spray loadout GET ${ver}:`, e.response?.status, e.message); }
+    }
+    if (!loadout) return console.log('Could not fetch loadout for sprays');
+
+    const spraysArr = loadout.Sprays || loadout.sprays;
+    if (!spraysArr) return console.log('No Sprays array in loadout');
+
+    sprayUuids.forEach((uuid, i) => {
+        if (!uuid || !spraysArr[i]) return;
+        if ('SprayID' in spraysArr[i]) spraysArr[i].SprayID = uuid;
+        if ('sprayId' in spraysArr[i]) spraysArr[i].sprayId = uuid;
+        if ('SprayLevelID' in spraysArr[i]) spraysArr[i].SprayLevelID = null;
+        if ('sprayLevelId' in spraysArr[i]) spraysArr[i].sprayLevelId = null;
+    });
+
+    axios.put(`${playerUrl}/personalization/${loadoutVer}/players/${playerUUid}/playerloadout`, loadout, { headers: pdHeaders })
+        .then(() => console.log('Sprays equipped successfully!'))
+        .catch(err => console.log('Sprays PUT error:', err.response?.status, err.message));
+});
+
+// ── Cosmetics: Gun Buddies ───────────────────────────────────────────────────
+
+ipcMain.on('equipBuddy', async (event, { gunUuid, buddyUuid, buddyLevelUuid }) => {
+    if (!axiosClient) return mainWindow.webContents.send('unauthorized');
+    if (!playerUrl) return mainWindow.webContents.send('unauthorized');
+
+    const pdHeaders = {
+        'Authorization': 'Bearer ' + accessToken,
+        'X-Riot-Entitlements-JWT': entitlementsToken,
+        'X-Riot-ClientVersion': riotClientVersion,
+        'X-Riot-ClientPlatform': 'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuNzY4LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9',
+        'Content-Type': 'application/json'
+    };
+
+    let loadout = null, loadoutVer = null;
+    for (const ver of ['v3', 'v2']) {
+        try {
+            const r = await axios.get(`${playerUrl}/personalization/${ver}/players/${playerUUid}/playerloadout`, { headers: pdHeaders });
+            loadout = r.data; loadoutVer = ver;
+            break;
+        } catch (e) { console.log(`Buddy loadout GET ${ver}:`, e.response?.status, e.message); }
+    }
+    if (!loadout) return console.log('Could not fetch loadout for buddy');
+
+    const guns = loadout.Guns || loadout.guns;
+    if (!guns) return console.log('No Guns array in loadout');
+
+    const gun = guns.find(g => (g.ID || g.id)?.toLowerCase() === gunUuid.toLowerCase());
+    if (!gun) return console.log('Gun not found in loadout:', gunUuid);
+
+    if ('CharmID' in gun || !('charmId' in gun)) gun.CharmID = buddyUuid;
+    if ('charmId' in gun) gun.charmId = buddyUuid;
+    if (buddyLevelUuid) {
+        if ('CharmLevelID' in gun || !('charmLevelId' in gun)) gun.CharmLevelID = buddyLevelUuid;
+        if ('charmLevelId' in gun) gun.charmLevelId = buddyLevelUuid;
+    }
+    gun.CharmInstanceID = gun.CharmInstanceID || null;
+
+    axios.put(`${playerUrl}/personalization/${loadoutVer}/players/${playerUUid}/playerloadout`, loadout, { headers: pdHeaders })
+        .then(() => console.log('Buddy equipped successfully!'))
+        .catch(err => console.log('Buddy PUT error:', err.response?.status, err.message));
+});
+
+// ── Agent Locker ─────────────────────────────────────────────────────────────
+
+ipcMain.on('agentLocker:getConfig', (event) => {
+    event.reply('agentLocker:config', agentLockerConfig);
+});
+
+ipcMain.on('agentLocker:setConfig', (event, cfg) => {
+    agentLockerConfig = cfg;
+    agentLockerLocked = false;
+    saveAgentLockerConfig(cfg);
 });

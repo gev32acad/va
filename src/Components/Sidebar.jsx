@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { GoPencil, GoSignOut, GoGear } from 'react-icons/go'
-import { BsInstagram, BsPersonFill, BsTelegram, BsPeopleFill } from 'react-icons/bs'
+import { BsInstagram, BsPersonFill, BsTelegram, BsPeopleFill, BsStars, BsShieldFill } from 'react-icons/bs'
 import { GiCurvyKnife } from 'react-icons/gi'
 
 const { shell, app } = window.require('@electron/remote')
@@ -9,6 +9,8 @@ const NAV = [
   { id: 3, icon: GiCurvyKnife,  label: 'Skin Changer'     },
   { id: 2, icon: GoPencil,      label: 'Rank Editor'       },
   { id: 5, icon: BsPersonFill,  label: 'Customize'         },
+  { id: 7, icon: BsStars,       label: 'Cosmetics'         },
+  { id: 8, icon: BsShieldFill,  label: 'Agent Locker'      },
   { id: 6, icon: BsPeopleFill,  label: 'Accounts'          },
   { id: 4, icon: GoGear,        label: 'Authorize'         },
 ]
