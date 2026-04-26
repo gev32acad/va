@@ -69,7 +69,7 @@ function setDiscordActivity() {
         state = [queue, size > 1 ? `${size} in Party` : null].filter(Boolean).join(' · ') || 'Choosing Agent';
     } else {
         details = currentPageLabel !== 'Home' ? `Browsing ${currentPageLabel}` : 'In the App';
-        state = "oxyn's Valorant Toolkit";
+        state = "Oxyn Valorant";
     }
 
     rpc.setActivity({
@@ -77,7 +77,7 @@ function setDiscordActivity() {
         state,
         startTimestamp: rpcStartTime,
         largeImageKey: 'logo',
-        largeImageText: "oxyn's Valorant Toolkit",
+        largeImageText: "Oxyn Valorant",
         instance: false,
     }).catch(() => {});
 }

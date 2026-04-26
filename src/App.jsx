@@ -31,8 +31,8 @@ function HomePage() {
           <GiCurvyKnife size={36} style={{ color: '#ff4655', filter: 'drop-shadow(0 0 10px rgba(255,70,85,0.6))' }} />
         </div>
       </div>
-      <h1 className='brand-font' style={{ fontSize: 50, color: '#ff4655', letterSpacing: 6, margin: 0, textShadow: '0 0 50px rgba(255,70,85,0.3)' }}>YOXYN</h1>
-      <p style={{ color: '#38385a', fontSize: 11, letterSpacing: 5, margin: 0 }}>SKIN CHANGER</p>
+      <h1 className='brand-font' style={{ fontSize: 50, color: '#ff4655', letterSpacing: 6, margin: 0, textShadow: '0 0 50px rgba(255,70,85,0.3)' }}>OXYN</h1>
+      <p style={{ color: '#38385a', fontSize: 11, letterSpacing: 5, margin: 0 }}>VALORANT</p>
       <div style={{ width: 36, height: 2, background: 'linear-gradient(90deg, transparent, #ff4655, transparent)' }} />
     </div>
   )
@@ -63,7 +63,7 @@ function App() {
       <div className='TitleBar' style={{ height: 40, flexShrink: 0, background: '#0d0d10', borderBottom: '1px solid #1a1a22', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <GiCurvyKnife size={13} style={{ color: '#ff4655' }} />
-          <span className='brand-font NoDrag' style={{ color: '#ff4655', fontSize: 13, letterSpacing: 2 }}>YOXYN</span>
+          <span className='brand-font NoDrag' style={{ color: '#ff4655', fontSize: 13, letterSpacing: 2 }}>OXYN VALORANT</span>
         </div>
         <div className='NoDrag' style={{ display: 'flex' }}>
           <WinBtn onClick={() => win.minimize()} hoverBg='#22222e'><VscChromeMinimize size={13} /></WinBtn>
