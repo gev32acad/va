@@ -511,7 +511,20 @@ ipcMain.on('accountSwitcher:import', async (event) => {
         if (match) riotClientExe = match[1].trim();
     } catch (e) {}
 
-    const settingsSrc = path.join(localAppData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml');
+    const candidatePaths = [
+        path.join(localAppData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
+        path.join(process.env.APPDATA || '', 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
+        path.join(localAppData, 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
+        path.join(process.env.APPDATA || '', 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
+    ];
+    const settingsSrc = candidatePaths.find(p => fs.existsSync(p));
+    if (!settingsSrc) {
+        return event.reply('accountSwitcher:importResult', {
+            success: false,
+            error: 'Could not find RiotClientPrivateSettings.yaml. Make sure Valorant is running and try again.'
+        });
+    }
+
     const accountsDataDir = path.join(app.getPath('userData'), 'accounts');
     if (!fs.existsSync(accountsDataDir)) fs.mkdirSync(accountsDataDir, { recursive: true });
     const savedSettingsPath = path.join(accountsDataDir, userInfo.sub + '.yaml');
