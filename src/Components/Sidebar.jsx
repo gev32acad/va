@@ -6,7 +6,7 @@ import { GiCurvyKnife } from 'react-icons/gi'
 const { shell, app } = window.require('@electron/remote')
 
 const NAV = [
-  { id: 3, icon: GiCurvyKnife,  label: 'Skin Changer'     },
+  { id: 3, icon: GiCurvyKnife,  label: 'Skin Changer'    },
   { id: 2, icon: GoPencil,      label: 'Rank Editor'       },
   { id: 5, icon: BsPersonFill,  label: 'Customize'         },
   { id: 7, icon: BsStars,       label: 'Cosmetics'         },
