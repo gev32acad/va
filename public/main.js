@@ -67,6 +67,10 @@ function setDiscordActivity() {
         const queue = formatQueue(valorantGameState.queueId);
         const size = valorantGameState.partySize;
         state = [queue, size > 1 ? `${size} in Party` : null].filter(Boolean).join(' · ') || 'Choosing Agent';
+    } else if (valorantGameState) {
+        details = 'In Valorant';
+        const size = valorantGameState.partySize;
+        state = size > 1 ? `${size} in Party` : 'In Menus';
     } else {
         details = currentPageLabel !== 'Home' ? `Browsing ${currentPageLabel}` : 'In the App';
         state = "Oxyn Valorant";
@@ -467,6 +471,22 @@ process.on("uncaughtExceptionMonitor", async (err, origin) => {
 
 // ── Account Switcher ────────────────────────────────────────────────────────
 
+function findFileRecursive(dir, filename, maxDepth = 5) {
+    if (maxDepth <= 0) return null;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return null; }
+    for (const entry of entries) {
+        if (entry.isSymbolicLink()) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isFile() && entry.name.toLowerCase() === filename.toLowerCase()) return fullPath;
+        if (entry.isDirectory()) {
+            const found = findFileRecursive(fullPath, filename, maxDepth - 1);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 ipcMain.on('accountSwitcher:getAccounts', (event) => {
     event.reply('accountSwitcher:accounts', readAccounts());
 });
@@ -517,7 +537,16 @@ ipcMain.on('accountSwitcher:import', async (event) => {
         path.join(localAppData, 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
         path.join(process.env.APPDATA || '', 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
     ];
-    const settingsSrc = candidatePaths.find(p => fs.existsSync(p));
+    let settingsSrc = candidatePaths.find(p => fs.existsSync(p));
+    if (!settingsSrc) {
+        for (const baseDir of [
+            path.join(localAppData, 'Riot Games'),
+            path.join(process.env.APPDATA || '', 'Riot Games'),
+        ]) {
+            const found = findFileRecursive(baseDir, 'RiotClientPrivateSettings.yaml');
+            if (found) { settingsSrc = found; break; }
+        }
+    }
     if (!settingsSrc) {
         return event.reply('accountSwitcher:importResult', {
             success: false,
