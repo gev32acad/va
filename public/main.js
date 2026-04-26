@@ -523,26 +523,69 @@ ipcMain.on('accountSwitcher:import', async (event) => {
         return event.reply('accountSwitcher:importResult', { success: false, error: 'Could not get account info: ' + e.message });
     }
 
-    // Try to grab the Riot Client exe path while it's still running
+    // Try to grab the Riot Client exe path while it's still running.
+    // WMIC is removed in some Windows 11 builds, so fall back to PowerShell.
     let riotClientExe = '';
     try {
         const wmicOut = execSync('wmic process where "name=\'RiotClientServices.exe\'" get ExecutablePath /format:value', { timeout: 5000 }).toString();
         const match = wmicOut.match(/ExecutablePath=(.+)/i);
         if (match) riotClientExe = match[1].trim();
     } catch (e) {}
+    if (!riotClientExe) {
+        try {
+            const psOut = execSync('powershell -NoProfile -Command "(Get-Process RiotClientServices -ErrorAction SilentlyContinue | Select-Object -First 1).Path"', { timeout: 5000 }).toString();
+            const ps = psOut.trim();
+            if (ps) riotClientExe = ps;
+        } catch (e) {}
+    }
+
+    // Derive the Riot Client base directory from the lockfile we already found.
+    // The lockfile is always at …/Riot Client/Config/lockfile, so two dirname()
+    // calls give us the …/Riot Client root. We verify the directory exists before
+    // using it so an unexpected path structure falls through to the other search roots.
+    const riotClientDir = path.dirname(path.dirname(lockfilePath));
+    const riotClientDirValid = fs.existsSync(riotClientDir);
+
+    const appData = process.env.APPDATA || '';
+    const programData = process.env.PROGRAMDATA || 'C:\\ProgramData';
 
     const candidatePaths = [
+        // Paths derived directly from the known Riot Client directory (most reliable).
+        ...(riotClientDirValid ? [
+            path.join(riotClientDir, 'Data', 'RiotClientPrivateSettings.yaml'),
+            path.join(riotClientDir, 'Config', 'RiotClientPrivateSettings.yaml'),
+            path.join(riotClientDir, 'RiotClientPrivateSettings.yaml'),
+        ] : []),
+        // Standard LOCALAPPDATA / APPDATA paths.
         path.join(localAppData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
-        path.join(process.env.APPDATA || '', 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
+        path.join(appData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
         path.join(localAppData, 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
-        path.join(process.env.APPDATA || '', 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
+        path.join(appData, 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
+        // ProgramData fallback.
+        path.join(programData, 'Riot Games', 'Riot Client', 'Data', 'RiotClientPrivateSettings.yaml'),
+        path.join(programData, 'Riot Games', 'Riot Client', 'Config', 'RiotClientPrivateSettings.yaml'),
     ];
+
+    // If we found the exe, also search relative to it (handles non-default install drives).
+    if (riotClientExe) {
+        const exeDir = path.dirname(riotClientExe);
+        candidatePaths.push(
+            path.join(exeDir, 'Data', 'RiotClientPrivateSettings.yaml'),
+            path.join(exeDir, 'Config', 'RiotClientPrivateSettings.yaml'),
+        );
+    }
+
     let settingsSrc = candidatePaths.find(p => fs.existsSync(p));
     if (!settingsSrc) {
-        for (const baseDir of [
+        // Broad recursive search across all known Riot Games roots.
+        const searchRoots = [
+            ...(riotClientDirValid ? [riotClientDir] : []),
             path.join(localAppData, 'Riot Games'),
-            path.join(process.env.APPDATA || '', 'Riot Games'),
-        ]) {
+            path.join(appData, 'Riot Games'),
+            path.join(programData, 'Riot Games'),
+        ];
+        if (riotClientExe) searchRoots.push(path.dirname(riotClientExe));
+        for (const baseDir of searchRoots) {
             const found = findFileRecursive(baseDir, 'RiotClientPrivateSettings.yaml');
             if (found) { settingsSrc = found; break; }
         }
