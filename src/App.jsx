@@ -53,6 +53,10 @@ function App() {
     return () => ipcRenderer.removeListener('unauthorized', onUnauthorized)
   }, [])
 
+  useEffect(() => {
+    ipcRenderer.send('rpc:pageUpdate', page)
+  }, [page])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#0a0a0c', color: '#f0f0f8' }}>
 

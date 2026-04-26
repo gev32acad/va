@@ -21,21 +21,96 @@ DiscordRPC.register(DISCORD_CLIENT_ID);
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
 const rpcStartTime = new Date();
 
+const PAGE_LABELS = {
+    0: 'Home',
+    2: 'Rank Editor',
+    3: 'Skin Changer',
+    4: 'Authorize',
+    5: 'Customize',
+    6: 'Account Manager',
+    7: 'Cosmetics',
+    8: 'Agent Locker',
+};
+
+const QUEUE_LABELS = {
+    'competitive': 'Competitive',
+    'unrated': 'Unrated',
+    'spikerush': 'Spike Rush',
+    'deathmatch': 'Deathmatch',
+    'escalation': 'Escalation',
+    'replication': 'Replication',
+    'swiftplay': 'Swiftplay',
+    'premier': 'Premier',
+    'hurm': 'Team Deathmatch',
+    'onefa': '1v1',
+};
+
+let currentPageLabel = 'Home';
+let valorantGameState = null;
+
+function formatQueue(queueId) {
+    if (!queueId) return null;
+    return QUEUE_LABELS[queueId.toLowerCase()] || (queueId.charAt(0).toUpperCase() + queueId.slice(1));
+}
+
 function setDiscordActivity() {
     if (!rpc) return;
+    let details, state;
+
+    if (valorantGameState && valorantGameState.sessionState === 'INGAME') {
+        details = 'In a Match';
+        const queue = formatQueue(valorantGameState.queueId);
+        const size = valorantGameState.partySize;
+        state = [queue, size > 1 ? `${size} in Party` : null].filter(Boolean).join(' · ') || 'Playing';
+    } else if (valorantGameState && valorantGameState.sessionState === 'PREGAME') {
+        details = 'Agent Select';
+        const queue = formatQueue(valorantGameState.queueId);
+        const size = valorantGameState.partySize;
+        state = [queue, size > 1 ? `${size} in Party` : null].filter(Boolean).join(' · ') || 'Choosing Agent';
+    } else {
+        details = currentPageLabel !== 'Home' ? `Browsing ${currentPageLabel}` : 'In the App';
+        state = "oxyn's Valorant Toolkit";
+    }
+
     rpc.setActivity({
-        details: "yoxyn's Skin Changer",
-        state: 'Customizing Valorant profile',
+        details,
+        state,
         startTimestamp: rpcStartTime,
         largeImageKey: 'logo',
-        largeImageText: "yoxyn's Skin Changer",
+        largeImageText: "oxyn's Valorant Toolkit",
         instance: false,
     }).catch(() => {});
 }
 
-rpc.on('ready', () => {
+async function fetchValorantGameState() {
+    if (!axiosClient || !playerUUid) {
+        valorantGameState = null;
+        return;
+    }
+    try {
+        const res = await axiosClient.get('/chat/v4/presences');
+        const myPresence = res.data.presences.find(p => p.puuid === playerUUid);
+        if (!myPresence) { valorantGameState = null; return; }
+        const priv = JSON.parse(Buffer.from(myPresence.private, 'base64').toString('utf8'));
+        const pd = priv.playerPresenceData || priv;
+        valorantGameState = {
+            sessionState: priv.sessionLoopState || pd.sessionLoopState || 'MENUS',
+            queueId: priv.queueId || pd.queueId || null,
+            partySize: priv.partySize || pd.partySize || 0,
+        };
+    } catch (e) {
+        valorantGameState = null;
+    }
+}
+
+async function updateRpc() {
+    await fetchValorantGameState();
     setDiscordActivity();
-    setInterval(setDiscordActivity, 15e3);
+}
+
+rpc.on('ready', () => {
+    updateRpc();
+    setInterval(updateRpc, 15e3);
 });
 
 rpc.login({ clientId: DISCORD_CLIENT_ID }).catch(() => {});
@@ -129,6 +204,11 @@ app.whenReady().then(() => {
 
 ipcMain.on('localfolder', () => {
     mainWindow.webContents.send('localfolder', process.env.LOCALAPPDATA);
+})
+
+ipcMain.on('rpc:pageUpdate', (event, pageId) => {
+    currentPageLabel = PAGE_LABELS[pageId] || 'Home';
+    setDiscordActivity();
 })
 
 ipcMain.on('rankUpdate', (event, arg1, arg2) => {
