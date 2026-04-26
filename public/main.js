@@ -434,6 +434,7 @@ ipcMain.on('accountSwitcher:launch', async (event, puuid) => {
         try { execSync(`taskkill /f /im "${proc}"`, { timeout: 5000 }); } catch (e) {}
     }
 
+    // Give the OS time to fully release file locks before restoring the session file
     await new Promise(r => setTimeout(r, 1500));
 
     try {
